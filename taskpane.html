@@ -215,9 +215,26 @@
 
     <form id="autoReplyForm">
       <div class="form-group">
+        <label for="templateSelect">Şablon Türü <span style="color:#d13438">*</span></label>
+        <select id="templateSelect" class="form-control" required>
+          <option value="izin">🏖️ Yıllık İzin</option>
+          <option value="bayram">🎉 Bayram</option>
+          <option value="gorevlendirme">📋 Görevlendirme</option>
+          <option value="yurtdisi">✈️ Yurtdışı Seyahati</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Yerinize birisi olacak mı?</label>
+        <div style="display:flex;gap:16px;margin-top:4px">
+          <label style="font-weight:400;cursor:pointer"><input type="radio" name="hasDelegate" value="yes" checked style="margin-right:4px">Evet</label>
+          <label style="font-weight:400;cursor:pointer"><input type="radio" name="hasDelegate" value="no" style="margin-right:4px">Hayır</label>
+        </div>
+      </div>
+
+      <div class="form-group" id="delegateSection">
         <label for="user-search-input">Yetkili Vekil <span style="color:#d13438">*</span></label>
-        <input type="text" id="user-search-input" class="form-control" placeholder="Kişi ara..." autocomplete="off"
-          required>
+        <input type="text" id="user-search-input" class="form-control" placeholder="Kişi ara..." autocomplete="off">
         <div id="users-results" class="colleague-dropdown"></div>
         <input type="hidden" id="selected-colleague-id">
       </div>
@@ -274,9 +291,12 @@
     const GRAPH_SCOPES_OOF = ["MailboxSettings.ReadWrite", "openid", "profile"];
     const GRAPH_SCOPES_USERS = ["User.Read.All", "openid", "profile"]; // istek üzerine
 
-    const messageTemplate = {
-      subject: "Otomatik Yanıt: Yıllık İzin / Automatic Reply: Annual Leave",
-      body: `Sayın Yetkili,
+    const messageTemplates = {
+      izin: {
+        subject: "Otomatik Yanıt: Yıllık İzin / Automatic Reply: Annual Leave",
+        reasonTr: "yıllık izinde",
+        reasonEn: "on annual leave",
+        body: `Sayın Yetkili,
 
 E-postanız için teşekkür ederim. {startDate} – {endDate} tarihleri arasında yıllık izinde olacağım ve bu süre içinde e-postalarınıza yanıt veremeyeceğim.
 
@@ -303,7 +323,109 @@ Kind regards,
 {userName}
 {positionLine}
 {company}`
+      },
+      bayram: {
+        subject: "Otomatik Yanıt: Bayram Tatili / Automatic Reply: Public Holiday",
+        reasonTr: "bayram tatilinde",
+        reasonEn: "on public holiday leave",
+        body: `Sayın Yetkili,
+
+E-postanız için teşekkür ederim. {startDate} – {endDate} tarihleri arasında bayram tatili nedeniyle ofiste bulunmayacağım ve e-postalarınıza yanıt veremeyeceğim.
+
+{contactLine}
+
+İyi bayramlar dilerim.
+
+Saygılarımla,
+{userName}
+{positionLine}
+{company}
+
+---
+
+Dear Sir/Madam,
+
+Thank you for your email. I will be out of the office due to a public holiday from {startDate} to {endDate}, and will not be able to respond to your message during this period.
+
+{contactLineEn}
+
+Wishing you a happy holiday.
+
+Kind regards,
+{userName}
+{positionLine}
+{company}`
+      },
+      gorevlendirme: {
+        subject: "Otomatik Yanıt: Görevlendirme / Automatic Reply: Business Assignment",
+        reasonTr: "görevlendirme nedeniyle ofis dışında",
+        reasonEn: "away on a business assignment",
+        body: `Sayın Yetkili,
+
+E-postanız için teşekkür ederim. {startDate} – {endDate} tarihleri arasında görevlendirme nedeniyle ofis dışında olacağım ve e-postalarınıza geç yanıt verebilirim.
+
+{contactLine}
+
+Anlayışınız için teşekkür eder, iyi çalışmalar dilerim.
+
+Saygılarımla,
+{userName}
+{positionLine}
+{company}
+
+---
+
+Dear Sir/Madam,
+
+Thank you for your email. I will be away on a business assignment from {startDate} to {endDate}, and may have limited access to my emails during this period.
+
+{contactLineEn}
+
+Thank you for your understanding.
+
+Kind regards,
+{userName}
+{positionLine}
+{company}`
+      },
+      yurtdisi: {
+        subject: "Otomatik Yanıt: Yurtdışı Seyahati / Automatic Reply: International Travel",
+        reasonTr: "yurtdışı seyahati nedeniyle ofis dışında",
+        reasonEn: "abroad on international travel",
+        body: `Sayın Yetkili,
+
+E-postanız için teşekkür ederim. {startDate} – {endDate} tarihleri arasında yurtdışı seyahati nedeniyle ofis dışında olacağım ve e-postalarınıza yanıt vermem gecikebilir.
+
+{contactLine}
+
+Anlayışınız için teşekkür eder, iyi çalışmalar dilerim.
+
+Saygılarımla,
+{userName}
+{positionLine}
+{company}
+
+---
+
+Dear Sir/Madam,
+
+Thank you for your email. I will be abroad on international travel from {startDate} to {endDate}, and my response may be delayed during this period.
+
+{contactLineEn}
+
+Thank you for your understanding.
+
+Kind regards,
+{userName}
+{positionLine}
+{company}`
+      }
     };
+
+    function getSelectedTemplate() {
+      const key = $("templateSelect").value;
+      return messageTemplates[key];
+    }
 
     /* =======================
        GLOBAL DURUM
@@ -507,8 +629,12 @@ Kind regards,
     /* =======================
        ÖNİZLEME / MESAJ
     ======================= */
+    function hasDelegate() {
+      return document.querySelector('input[name="hasDelegate"]:checked')?.value === 'yes';
+    }
+
     function buildContactLines(col) {
-      if (!col) {
+      if (!col || !hasDelegate()) {
         return {
           tr: 'Acil konularınız için lütfen başka bir yetkiliye başvurun.',
           en: 'For urgent matters, please contact another authorized person.'
@@ -552,10 +678,18 @@ Kind regards,
       const preview = $("messagePreview");
       const sD = $("startDate").value, sT = $("startTime").value;
       const eD = $("endDate").value, eT = $("endTime").value;
-      if (!selectedColleague || !sD || !sT || !eD || !eT) {
+
+      const delegateRequired = hasDelegate();
+      if (delegateRequired && !selectedColleague) {
         preview.textContent = "Lütfen tüm alanları doldurun...";
         return;
       }
+      if (!sD || !sT || !eD || !eT) {
+        preview.textContent = "Lütfen tüm alanları doldurun...";
+        return;
+      }
+
+      const template = getSelectedTemplate();
       const startDisp = formatDisplayDate(sD, sT);
       const endDisp = formatDisplayDate(eD, eT);
 
@@ -564,7 +698,7 @@ Kind regards,
       const company = 'Öztiryakiler';
       const contact = buildContactLines(selectedColleague);
 
-      const body = messageTemplate.body
+      const body = template.body
         .replaceAll('{startDate}', startDisp)
         .replaceAll('{endDate}', endDisp)
         .replaceAll('{contactLine}', contact.tr)
@@ -573,7 +707,7 @@ Kind regards,
         .replaceAll('{positionLine}', positionLine)
         .replaceAll('{company}', company);
 
-      preview.textContent = `Konu: ${messageTemplate.subject}\n\n${body}`;
+      preview.textContent = `Konu: ${template.subject}\n\n${body}`;
     }
 
     // YERİNE GEÇSİN: setOOFWithGraphMessage(...)
@@ -685,8 +819,10 @@ Kind regards,
     async function onSubmit(ev) {
       ev.preventDefault();
 
-      // ZORUNLU: arama sonuçlarından seçim yapılmış olmalı
-      if (!selectedColleague || !$("selected-colleague-id").value) {
+      const delegateRequired = hasDelegate();
+
+      // Vekil seçimi zorunluysa kontrol et
+      if (delegateRequired && (!selectedColleague || !$("selected-colleague-id").value)) {
         $("user-search-input").focus();
         showStatus("error", "Lütfen arama yapıp listeden bir kişi seçin.");
         return;
@@ -709,34 +845,40 @@ Kind regards,
 
       try {
         const user = await getUserProfile();
+        const template = getSelectedTemplate();
 
-        const contact = buildContactLines(selectedColleague); // mevcut fonksiyon
+        const contact = buildContactLines(selectedColleague);
         const startDisp = formatDisplayDate(sD, sT);
         const endDisp = formatDisplayDate(eD, eT);
         const positionLine = user.jobTitle || "";
 
+        let contactHtmlTr = '<p>Acil konularınız için lütfen başka bir yetkiliye başvurun.</p>';
+        let contactHtmlEn = '<p>For urgent matters, please contact another authorized person.</p>';
+
+        if (delegateRequired && selectedColleague) {
+          contactHtmlTr = `<p>Acil konularınız için <strong>${selectedColleague.name}</strong> ile
+            ${selectedColleague.email ? `<a href="mailto:${selectedColleague.email}">${selectedColleague.email}</a>` : ''}
+            ${selectedColleague.phone ? ` veya <a href="tel:${selectedColleague.phone.replace(/\s+/g, '')}">${selectedColleague.phone}</a>` : ''} 
+            üzerinden iletişime geçebilirsiniz.</p>`;
+          contactHtmlEn = `<p>For urgent matters, please contact <strong>${selectedColleague.name}</strong>
+            ${selectedColleague.email ? ` at <a href="mailto:${selectedColleague.email}">${selectedColleague.email}</a>` : ''}
+            ${selectedColleague.phone ? ` or <a href="tel:${selectedColleague.phone.replace(/\s+/g, '')}">${selectedColleague.phone}</a>` : ''}.</p>`;
+        }
+
         const messageBodyHtml = `
         <p>Sayın Yetkili,</p>
-        <p>E-postanız için teşekkür ederim. ${startDisp} – ${endDisp} tarihleri arasında <strong>yıllık izindeyim</strong> ve bu süre içinde e-postalarınıza yanıt veremeyeceğim.</p>
-        <p>Acil konularınız için <strong>${selectedColleague.name}</strong> ile
-          ${selectedColleague.email ? `<a href="mailto:${selectedColleague.email}">${selectedColleague.email}</a>` : ''}
-          ${selectedColleague.phone ? ` veya <a href="tel:${selectedColleague.phone.replace(/\s+/g, '')}">${selectedColleague.phone}</a>` : ''} 
-          üzerinden iletişime geçebilirsiniz.</p>
+        <p>E-postanız için teşekkür ederim. ${startDisp} – ${endDisp} tarihleri arasında <strong>${template.reasonTr}</strong> olacağım ve bu süre içinde e-postalarınıza yanıt veremeyeceğim.</p>
+        ${contactHtmlTr}
         <p>Teşekkür eder, iyi çalışmalar dilerim.</p>
         <p>Saygılarımla,<br>${user.displayName}<br>${positionLine || ''}<br>${user.companyName || 'Öztiryakiler'}</p>
         <hr>
         <p>Dear Sir/Madam,</p>
-        <p>Thank you for your email. I will be  <strong>out of the office</strong> on annual leave from ${startDisp} to ${endDisp} and will not be able to respond to your message during this period.</p>
-        <p>For urgent matters, please contact <strong>${selectedColleague.name}</strong>
-          ${selectedColleague.email ? ` at <a href="mailto:${selectedColleague.email}">${selectedColleague.email}</a>` : ''}
-          ${selectedColleague.phone ? ` or <a href="tel:${selectedColleague.phone.replace(/\s+/g, '')}">${selectedColleague.phone}</a>` : ''}.
-        </p>
+        <p>Thank you for your email. I will be <strong>${template.reasonEn}</strong> from ${startDisp} to ${endDisp} and will not be able to respond to your message during this period.</p>
+        ${contactHtmlEn}
         <p>Kind regards,<br>${user.displayName}<br>${positionLine || ''}<br>${user.companyName || 'Öztiryakiler'}</p>
         `;
 
-        const body = messageBodyHtml;
-
-        await setOOFWithGraphMessage(body, sD, sT, eD, eT);
+        await setOOFWithGraphMessage(messageBodyHtml, sD, sT, eD, eT);
         updatePreview();
         showStatus("success", "Otomatik yanıt başarıyla ayarlandı!");
         showOofBannerUntil(e);
@@ -751,9 +893,30 @@ Kind regards,
     /* =======================
        INIT
     ======================= */
+    function initDelegateToggle() {
+      const radios = document.querySelectorAll('input[name="hasDelegate"]');
+      const section = $("delegateSection");
+      radios.forEach(r => r.addEventListener('change', () => {
+        const show = hasDelegate();
+        section.style.display = show ? 'block' : 'none';
+        if (!show) {
+          selectedColleague = null;
+          $("selected-colleague-id").value = '';
+          $("user-search-input").value = '';
+        }
+        updatePreview();
+      }));
+    }
+
+    function initTemplateSelect() {
+      $("templateSelect").addEventListener('change', updatePreview);
+    }
+
     Office.onReady(async () => {
       await ensurePCA();
       setDefaultDates();
+      initTemplateSelect();
+      initDelegateToggle();
       initUserSearch();
       bindCopyPreview();
       updatePreview();
