@@ -477,11 +477,17 @@ Kind regards,
     const $ = id => document.getElementById(id);
     const debounce = (fn, ms = 300) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); } };
 
-    function todayISODate() { return new Date().toISOString().split("T")[0]; }
+    function todayISODate() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+
     function formatDisplayDate(dateStr, timeStr) {
       const d = new Date(`${dateStr}T${timeStr}`);
       return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ` ${timeStr}`;
     }
+
     function showStatus(type, message) {
       const el = $("statusMessage");
       el.className = `status-message ${type === "success" ? "status-success" : "status-error"}`;
@@ -489,17 +495,37 @@ Kind regards,
       el.style.display = "block";
       setTimeout(() => { el.style.display = "none"; }, 8000);
     }
+
+    function refreshDateConstraints() {
+      const sD = $("startDate"), eD = $("endDate");
+      if (!sD.value) return;
+      eD.min = sD.value;
+      if (eD.value && eD.value < sD.value) {
+        eD.value = sD.value;
+      }
+    }
+
+    function bindDateTimeInputs() {
+      ["startDate", "startTime", "endDate", "endTime"].forEach(id => {
+        const input = $(id);
+        const handleChange = () => {
+          refreshDateConstraints();
+          updatePreview();
+        };
+        input.addEventListener("change", handleChange);
+        input.addEventListener("input", handleChange);
+      });
+    }
+
     function setDefaultDates() {
       const sD = $("startDate"), eD = $("endDate"), sT = $("startTime"), eT = $("endTime");
       const today = todayISODate();
       sD.min = eD.min = today;
-      sD.value = eD.value = today;      // istek: bugünün tarihi set
+      sD.value = today;
+      eD.value = today;
       sT.value = "07:30"; eT.value = "17:30";
-      sD.addEventListener("change", () => {
-        if (eD.value < sD.value) eD.value = sD.value;
-        eD.min = sD.value;
-        updatePreview();
-      });
+      refreshDateConstraints();
+      updatePreview();
     }
 
     /* =======================
@@ -915,6 +941,7 @@ Kind regards,
     Office.onReady(async () => {
       await ensurePCA();
       setDefaultDates();
+      bindDateTimeInputs();
       initTemplateSelect();
       initDelegateToggle();
       initUserSearch();
